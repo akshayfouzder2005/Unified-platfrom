@@ -33,11 +33,7 @@ class StockAssessmentEngine:
     
     def __init__(self):
         """Initialize the stock assessment engine"""
-        self.models = {
-            'schaefer': self._schaefer_model,
-            'fox': self._fox_model,
-            'pella_tomlinson': self._pella_tomlinson_model
-        }
+        self.available_models = ['schaefer', 'fox']
         self.reference_points = {}
         self.assessment_results = {}
         
@@ -589,6 +585,59 @@ class StockAssessmentEngine:
             
         except Exception as e:
             logger.error(f"❌ Model comparison failed: {e}")
+            return {'error': str(e)}
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get stock assessment engine status"""
+        return {
+            'service': 'stock_assessment',
+            'status': 'healthy',
+            'available_models': self.available_models,
+            'supported_analyses': ['schaefer', 'fox', 'model_comparison', 'yield_per_recruit'],
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def get_available_models(self) -> List[str]:
+        """Get list of available stock assessment models"""
+        return self.available_models.copy()
+    
+    async def assess_stock(self,
+                          species_name: str,
+                          data_source: str,
+                          model_type: str,
+                          time_series_data: List[Dict[str, Any]],
+                          parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Perform comprehensive stock assessment"""
+        try:
+            # Extract data from time series
+            years = [int(d.get('year', 0)) for d in time_series_data]
+            catches = [float(d.get('catch', 0)) for d in time_series_data]
+            abundance = [float(d.get('abundance_index', 0)) for d in time_series_data]
+            
+            # Validate data
+            if not all(years) or not all(c >= 0 for c in catches) or not all(a > 0 for a in abundance):
+                return {'error': 'Invalid time series data'}
+            
+            # Perform assessment based on model type
+            if model_type == 'schaefer' or model_type == 'surplus_production':
+                result = self.schaefer_assessment(catches, abundance, years, parameters.get('initial_params'))
+            elif model_type == 'fox':
+                result = self.fox_assessment(catches, abundance, years)
+            elif model_type == 'comparison':
+                result = self.compare_models(catches, abundance, years)
+            else:
+                return {'error': f'Unsupported model type: {model_type}'}
+            
+            # Add metadata
+            if 'error' not in result:
+                result['species_name'] = species_name
+                result['data_source'] = data_source
+                result['assessment_timestamp'] = datetime.now().isoformat()
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Stock assessment failed: {e}")
             return {'error': str(e)}
 
 # Global stock assessment instance

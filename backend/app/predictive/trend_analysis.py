@@ -660,6 +660,64 @@ class TrendAnalyzer:
             
         except Exception as e:
             return {'error': f'Consensus determination failed: {e}'}
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get trend analyzer status"""
+        return {
+            'service': 'trend_analysis',
+            'status': 'healthy',
+            'available_analyses': ['mann_kendall', 'linear_regression', 'polynomial_regression', 
+                                  'seasonal_decompose', 'change_point_detection', 'comprehensive'],
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def get_available_analyses(self) -> List[str]:
+        """Get list of available trend analyses"""
+        return ['mann_kendall', 'linear_regression', 'polynomial_regression', 
+                'seasonal_decompose', 'change_point_detection', 'comprehensive']
+    
+    async def analyze_trends(self,
+                           analysis_type: str,
+                           data: List[Dict[str, Any]],
+                           variables: List[str],
+                           time_column: str = 'date',
+                           parameters: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Perform trend analysis on data"""
+        try:
+            # Extract time series data for the first variable (for simplicity)
+            if not variables or not data:
+                return {'error': 'No variables or data provided'}
+            
+            variable = variables[0]  # Use first variable
+            dates = [d.get(time_column, '') for d in data]
+            values = [float(d.get(variable, 0)) for d in data if d.get(variable) is not None]
+            
+            if not dates or not values or len(dates) != len(values):
+                return {'error': 'Invalid time series data'}
+            
+            # Call appropriate analysis method
+            if analysis_type == 'mann_kendall':
+                result = self.mann_kendall_test(values, dates)
+            elif analysis_type == 'linear_regression':
+                result = self.linear_trend_analysis(values, dates)
+            elif analysis_type == 'polynomial_regression':
+                degree = parameters.get('degree', 2) if parameters else 2
+                result = self.polynomial_trend_analysis(values, dates, degree)
+            elif analysis_type == 'seasonal_decompose':
+                period = parameters.get('period', 12) if parameters else 12
+                result = self.seasonal_decomposition(values, dates, period)
+            elif analysis_type == 'change_point_detection':
+                result = self.change_point_detection(values, dates)
+            elif analysis_type == 'comprehensive':
+                result = self.comprehensive_trend_analysis(values, dates)
+            else:
+                return {'error': f'Unsupported analysis type: {analysis_type}'}
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Trend analysis failed: {e}")
+            return {'error': str(e)}
 
 # Global trend analyzer instance
 trend_analyzer = TrendAnalyzer()

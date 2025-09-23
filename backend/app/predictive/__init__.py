@@ -15,18 +15,37 @@ Author: Ocean-Bio Development Team
 Version: 2.0.0
 """
 
-from .stock_assessment import StockAssessmentEngine
-from .forecasting_engine import ForecastingEngine
-from .trend_analysis import TrendAnalyzer
-from .population_models import PopulationModeler
-from .environmental_models import EnvironmentalModeler
+# Resilient imports for development environments
+__all__ = []
 
-__all__ = [
-    'StockAssessmentEngine',
-    'ForecastingEngine', 
-    'TrendAnalyzer',
-    'PopulationModeler',
-    'EnvironmentalModeler'
-]
+try:
+    from .stock_assessment import StockAssessmentEngine
+    __all__.append('StockAssessmentEngine')
+except ImportError:
+    pass
+
+try:
+    from .forecasting_engine import ForecastingEngine
+    __all__.append('ForecastingEngine')
+except ImportError:
+    pass
+
+try:
+    from .trend_analysis import TrendAnalyzer
+    __all__.append('TrendAnalyzer')
+except ImportError:
+    pass
+
+try:
+    from .population_models import PopulationModeler
+    __all__.append('PopulationModeler')
+except ImportError:
+    pass
+
+try:
+    from .environmental_models import EnvironmentalModeler
+    __all__.append('EnvironmentalModeler')
+except ImportError:
+    pass
 
 __version__ = "2.0.0"

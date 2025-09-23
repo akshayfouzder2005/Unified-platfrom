@@ -16,6 +16,9 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
+# Initialize logger early
+logger = logging.getLogger(__name__)
+
 # Statistical and ML libraries
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.seasonal import seasonal_decompose
@@ -32,8 +35,6 @@ try:
 except ImportError:
     PROPHET_AVAILABLE = False
     logger.warning("Prophet not available. Time-series forecasting will use ARIMA only.")
-
-logger = logging.getLogger(__name__)
 
 class ForecastingEngine:
     """
@@ -633,5 +634,71 @@ class ForecastingEngine:
             logger.error(f"❌ Forecast visualization failed: {e}")
             return {'error': str(e)}
 
+    def get_status(self) -> Dict[str, Any]:
+        """Get forecasting engine status"""
+        return {
+            'service': 'forecasting_engine',
+            'status': 'healthy',
+            'supported_models': self.supported_models,
+            'prophet_available': PROPHET_AVAILABLE,
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def get_available_forecast_types(self) -> List[str]:
+        """Get list of available forecast types"""
+        types = ['arima', 'seasonal_decompose']
+        if PROPHET_AVAILABLE:
+            types.append('prophet')
+        return types
+    
+    async def generate_forecast(self,
+                              forecast_type: str,
+                              time_series_data: List[Dict[str, Any]],
+                              forecast_horizon: int,
+                              confidence_level: float = 0.95,
+                              parameters: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Generate forecast using specified method"""
+        try:
+            # Extract data from time series
+            dates = [d.get('date', '') for d in time_series_data]
+            values = [float(d.get('value', 0)) for d in time_series_data]
+            
+            if not dates or not values:
+                return {'error': 'Invalid time series data'}
+            
+            # Call appropriate forecasting method
+            if forecast_type == 'arima':
+                order = parameters.get('order') if parameters else None
+                seasonal_order = parameters.get('seasonal_order') if parameters else None
+                result = self.arima_forecast(
+                    data=values,
+                    dates=dates,
+                    forecast_periods=forecast_horizon,
+                    order=order,
+                    seasonal_order=seasonal_order
+                )
+            elif forecast_type == 'prophet' and PROPHET_AVAILABLE:
+                result = self.prophet_forecast(
+                    data=values,
+                    dates=dates,
+                    forecast_periods=forecast_horizon
+                )
+            elif forecast_type == 'seasonal_decompose':
+                result = self.seasonal_decomposition(
+                    data=values,
+                    dates=dates,
+                    model='additive',
+                    period=parameters.get('period', 12) if parameters else 12
+                )
+            else:
+                return {'error': f'Unsupported forecast type: {forecast_type}'}
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Forecast generation failed: {e}")
+            return {'error': str(e)}
+
 # Global forecasting engine instance
 forecaster = ForecastingEngine()
+forecasting_engine = forecaster  # Alias for compatibility
