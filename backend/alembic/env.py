@@ -11,19 +11,36 @@ from alembic import context
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 # Import our models
-from app.models.base import BaseModel
-from app.models import *  # This imports all models
-from app.core.config import settings
+try:
+    from app.models.base import BaseModel
+    target_metadata = BaseModel.metadata
+except ImportError:
+    # Fallback if models are not available
+    target_metadata = None
+    
+try:
+    from app.models import *  # This imports all models
+except ImportError:
+    pass  # Models not available, migrations may not work
+    
+from app.core.config import get_settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
+# Get settings dynamically
+settings = get_settings()
+
 # Set the database URL dynamically from our settings
-config.set_main_option(
-    "sqlalchemy.url",
-    f"postgresql://{settings.postgres_user}:{settings.postgres_password}@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
-)
+# Use DATABASE_URL if available, otherwise construct PostgreSQL URL
+if hasattr(settings, 'DATABASE_URL') and settings.DATABASE_URL:
+    database_url = settings.DATABASE_URL
+else:
+    # Fallback to PostgreSQL URL construction
+    database_url = f"postgresql://{settings.postgres_user}:{settings.postgres_password}@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
+
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -32,7 +49,7 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-target_metadata = BaseModel.metadata
+# target_metadata is set above in the import section
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
