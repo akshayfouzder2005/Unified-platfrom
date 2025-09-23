@@ -34,6 +34,16 @@ from .user import (
     User,
     UserRole
 )
+from .fisheries import (
+    FishingVessel,
+    FishingTrip,
+    CatchRecord,
+    FishingQuota,
+    MarketPrice,
+    VesselType,
+    FishingMethod,
+    CatchStatus
+)
 
 # Export all models for easy importing
 __all__ = [
@@ -66,5 +76,14 @@ __all__ = [
     "OtolithStudy",
     # Authentication
     "User",
-    "UserRole"
+    "UserRole",
+    # Fisheries
+    "FishingVessel",
+    "FishingTrip",
+    "CatchRecord",
+    "FishingQuota",
+    "MarketPrice",
+    "VesselType",
+    "FishingMethod",
+    "CatchStatus"
 ]

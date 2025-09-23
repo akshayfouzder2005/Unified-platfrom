@@ -6,13 +6,20 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class DataValidationError(Exception):
+class ValidationError(Exception):
+    """Base validation error class"""
+    def __init__(self, message: str, field: str = None):
+        self.message = message
+        self.field = field
+        super().__init__(self.message)
+
+class DataValidationError(ValidationError):
     """Custom exception for data validation errors"""
     def __init__(self, message: str, field: str = None, value: any = None):
         self.message = message
         self.field = field
         self.value = value
-        super().__init__(self.message)
+        super().__init__(self.message, field)
 
 class DatabaseConnectionError(Exception):
     """Custom exception for database connection issues"""
