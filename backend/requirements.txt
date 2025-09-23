@@ -7,6 +7,8 @@ asyncpg
 alembic
 pandas
 pytest
+pytest-cov
+pytest-asyncio
 httpx>=0.24.0
 psycopg2-binary
 python-multipart
