@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌊 Ocean-Bio: Marine Data Platform</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 2s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Gradient backgrounds */
+        .gradient-ocean {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .gradient-success {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+        }
+        
+        .gradient-warning {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // API Configuration
+        const API_BASE_URL = 'http://localhost:8000/api';
+        
+        // API Service
+        const apiService = {
+            async request(endpoint, options = {}) {
+                const url = `${API_BASE_URL}${endpoint}`;
+                const config = {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    ...options,
+                };
+                
+                try {
+                    const response = await fetch(url, config);
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: 'Network error occurred' }));
+                        throw new Error(errorData.detail || `HTTP ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error('API Error:', error);
+                    throw error;
+                }
+            },
+            
+            // Health check
+            async checkHealth() {
+                return this.request('/health');
+            },
+            
+            // Species/Taxonomy endpoints
+            async getSpecies(params = {}) {
+                const query = new URLSearchParams(params).toString();
+                return this.request(`/taxonomy/species${query ? '?' + query : ''}`);
+            },
+            
+            async createSpecies(data) {
+                return this.request('/taxonomy/species', {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                });
+            },
+            
+            async updateSpecies(id, data) {
+                return this.request(`/taxonomy/species/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data),
+                });
+            },
+            
+            async deleteSpecies(id) {
+                return this.request(`/taxonomy/species/${id}`, {
+                    method: 'DELETE',
+                });
+            },
+            
+            async getTaxonomyStats() {
+                return this.request('/taxonomy/stats');
+            },
+            
+            async getTaxonomyTree() {
+                return this.request('/taxonomy/taxonomy-tree');
+            },
+            
+            // Data ingestion endpoints
+            async uploadCSV(file, type = 'taxonomy') {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                return fetch(`${API_BASE_URL}/ingestion/${type}/upload-csv`, {
+                    method: 'POST',
+                    body: formData,
+                });
+            },
+            
+            async getIngestionStatus() {
+                return this.request('/ingestion/ingestion/status');
+            },
+            
+            // Visualization endpoints
+            async getVisualizationData(type = 'trend') {
+                return this.request(`/visualization/${type}-data`);
+            }
+        };
+        
+        // Loading Component
+        const Loading = ({ size = "md", text = "Loading..." }) => {
+            const sizeClasses = {
+                sm: "w-4 h-4",
+                md: "w-6 h-6", 
+                lg: "w-8 h-8"
+            };
+            
+            return (
+                <div className="flex items-center justify-center space-x-2 py-4">
+                    <div className={`${sizeClasses[size]} spinner`}></div>
+                    <span className="text-gray-600">{text}</span>
+                </div>
+            );
+        };
+        
+        // Alert Component
+        const Alert = ({ type = "info", message, onClose }) => {
+            const typeClasses = {
+                success: "bg-green-50 border-green-200 text-green-800",
+                error: "bg-red-50 border-red-200 text-red-800",
+                warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
+                info: "bg-blue-50 border-blue-200 text-blue-800"
+            };
+            
+            const iconClasses = {
+                success: "fa-check-circle text-green-500",
+                error: "fa-exclamation-circle text-red-500",
+                warning: "fa-exclamation-triangle text-yellow-500",
+                info: "fa-info-circle text-blue-500"
+            };
+            
+            return (
+                <div className={`border rounded-lg p-4 mb-4 ${typeClasses[type]}`}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                            <i className={`fas ${iconClasses[type]} mr-2`}></i>
+                            <span>{message}</span>
+                        </div>
+                        {onClose && (
+                            <button onClick={onClose} className="ml-2 text-gray-500 hover:text-gray-700">
+                                <i className="fas fa-times"></i>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        
+        // Navigation Component
+        const Navigation = ({ activeTab, setActiveTab }) => {
+            const tabs = [
+                { id: 'dashboard', name: 'Dashboard', icon: 'fa-chart-pie' },
+                { id: 'species', name: 'Species', icon: 'fa-fish' },
+                { id: 'upload', name: 'Data Upload', icon: 'fa-upload' },
+                { id: 'visualizations', name: 'Charts', icon: 'fa-chart-bar' },
+            ];
+            
+            return (
+                <nav className="gradient-ocean shadow-lg">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <div className="flex justify-between items-center py-4">
+                            <div className="flex items-center space-x-3">
+                                <i className="fas fa-wave-square text-white text-2xl"></i>
+                                <h1 className="text-white text-xl font-bold">Ocean-Bio Platform</h1>
+                            </div>
+                            
+                            <div className="flex space-x-1">
+                                {tabs.map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                            activeTab === tab.id
+                                                ? 'bg-white text-blue-600 shadow-md'
+                                                : 'text-white hover:bg-white hover:bg-opacity-20'
+                                        }`}
+                                    >
+                                        <i className={`fas ${tab.icon} mr-2`}></i>
+                                        {tab.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            );
+        };
+        
+        // Dashboard Component
+        const Dashboard = () => {
+            const [stats, setStats] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [health, setHealth] = useState(null);
+            
+            useEffect(() => {
+                const loadDashboardData = async () => {
+                    try {
+                        const [healthData, statsData] = await Promise.all([
+                            apiService.checkHealth(),
+                            apiService.getTaxonomyStats()
+                        ]);
+                        
+                        setHealth(healthData);
+                        setStats(statsData);
+                    } catch (error) {
+                        console.error('Failed to load dashboard:', error);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                
+                loadDashboardData();
+            }, []);
+            
+            if (loading) return <Loading text="Loading dashboard..." />;
+            
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                        <i className="fas fa-chart-pie text-blue-600 mr-2"></i>
+                        Dashboard Overview
+                    </h2>
+                    
+                    {/* Health Status */}
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <h3 className="text-lg font-semibold mb-4">System Health</h3>
+                        <div className="flex items-center">
+                            <div className={`w-3 h-3 rounded-full mr-2 ${health?.status === 'ok' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <span className="text-gray-700">
+                                API Status: <strong>{health?.status === 'ok' ? 'Healthy' : 'Unhealthy'}</strong>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    {/* Statistics Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-gray-600">Total Species</p>
+                                    <p className="text-3xl font-bold text-blue-600">
+                                        {stats?.total_species || 0}
+                                    </p>
+                                </div>
+                                <i className="fas fa-fish text-blue-500 text-2xl"></i>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-gray-600">Taxonomic Ranks</p>
+                                    <p className="text-3xl font-bold text-green-600">
+                                        {stats?.total_ranks || 0}
+                                    </p>
+                                </div>
+                                <i className="fas fa-sitemap text-green-500 text-2xl"></i>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-gray-600">Recent Updates</p>
+                                    <p className="text-3xl font-bold text-purple-600">
+                                        {stats?.recent_updates || 0}
+                                    </p>
+                                </div>
+                                <i className="fas fa-clock text-purple-500 text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Quick Actions */}
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button className="gradient-success text-white py-3 px-4 rounded-lg hover:opacity-90 transition-opacity">
+                                <i className="fas fa-plus mr-2"></i>Add New Species
+                            </button>
+                            <button className="gradient-warning text-white py-3 px-4 rounded-lg hover:opacity-90 transition-opacity">
+                                <i className="fas fa-upload mr-2"></i>Upload Data
+                            </button>
+                            <button className="gradient-ocean text-white py-3 px-4 rounded-lg hover:opacity-90 transition-opacity">
+                                <i className="fas fa-chart-bar mr-2"></i>View Reports
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Species Management Component
+        const SpeciesManagement = () => {
+            const [species, setSpecies] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [showAddForm, setShowAddForm] = useState(false);
+            const [editingSpecies, setEditingSpecies] = useState(null);
+            const [alert, setAlert] = useState(null);
+            
+            const [formData, setFormData] = useState({
+                scientific_name: '',
+                common_name: '',
+                kingdom: 'Animalia',
+                phylum: '',
+                class_name: '',
+                order_name: '',
+                family: '',
+                genus: '',
+                species_name: '',
+                conservation_status: 'Not Evaluated'
+            });
+            
+            useEffect(() => {
+                loadSpecies();
+            }, []);
+            
+            const loadSpecies = async () => {
+                try {
+                    const data = await apiService.getSpecies();
+                    setSpecies(data.items || data || []);
+                } catch (error) {
+                    setAlert({ type: 'error', message: `Failed to load species: ${error.message}` });
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    if (editingSpecies) {
+                        await apiService.updateSpecies(editingSpecies.id, formData);
+                        setAlert({ type: 'success', message: 'Species updated successfully!' });
+                    } else {
+                        await apiService.createSpecies(formData);
+                        setAlert({ type: 'success', message: 'Species added successfully!' });
+                    }
+                    
+                    setFormData({
+                        scientific_name: '',
+                        common_name: '',
+                        kingdom: 'Animalia',
+                        phylum: '',
+                        class_name: '',
+                        order_name: '',
+                        family: '',
+                        genus: '',
+                        species_name: '',
+                        conservation_status: 'Not Evaluated'
+                    });
+                    setShowAddForm(false);
+                    setEditingSpecies(null);
+                    loadSpecies();
+                } catch (error) {
+                    setAlert({ type: 'error', message: `Failed to save species: ${error.message}` });
+                }
+            };
+            
+            const handleEdit = (speciesItem) => {
+                setEditingSpecies(speciesItem);
+                setFormData({ ...speciesItem });
+                setShowAddForm(true);
+            };
+            
+            const handleDelete = async (id) => {
+                if (!confirm('Are you sure you want to delete this species?')) return;
+                
+                try {
+                    await apiService.deleteSpecies(id);
+                    setAlert({ type: 'success', message: 'Species deleted successfully!' });
+                    loadSpecies();
+                } catch (error) {
+                    setAlert({ type: 'error', message: `Failed to delete species: ${error.message}` });
+                }
+            };
+            
+            const filteredSpecies = species.filter(s => 
+                s.scientific_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                s.common_name?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            
+            if (loading) return <Loading text="Loading species data..." />;
+            
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-gray-800">
+                            <i className="fas fa-fish text-blue-600 mr-2"></i>
+                            Species Management
+                        </h2>
+                        <button
+                            onClick={() => setShowAddForm(true)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <i className="fas fa-plus mr-2"></i>Add Species
+                        </button>
+                    </div>
+                    
+                    {alert && (
+                        <Alert 
+                            type={alert.type} 
+                            message={alert.message} 
+                            onClose={() => setAlert(null)} 
+                        />
+                    )}
+                    
+                    {/* Search */}
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <div className="relative">
+                            <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            <input
+                                type="text"
+                                placeholder="Search species by scientific or common name..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                    </div>
+                    
+                    {/* Add/Edit Form Modal */}
+                    {showAddForm && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+                                <h3 className="text-lg font-semibold mb-4">
+                                    {editingSpecies ? 'Edit Species' : 'Add New Species'}
+                                </h3>
+                                
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <input
+                                            type="text"
+                                            placeholder="Scientific Name *"
+                                            value={formData.scientific_name}
+                                            onChange={(e) => setFormData({...formData, scientific_name: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        />
+                                        
+                                        <input
+                                            type="text"
+                                            placeholder="Common Name"
+                                            value={formData.common_name}
+                                            onChange={(e) => setFormData({...formData, common_name: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        
+                                        <select
+                                            value={formData.kingdom}
+                                            onChange={(e) => setFormData({...formData, kingdom: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="Animalia">Animalia</option>
+                                            <option value="Plantae">Plantae</option>
+                                            <option value="Fungi">Fungi</option>
+                                            <option value="Protista">Protista</option>
+                                            <option value="Bacteria">Bacteria</option>
+                                        </select>
+                                        
+                                        <input
+                                            type="text"
+                                            placeholder="Phylum"
+                                            value={formData.phylum}
+                                            onChange={(e) => setFormData({...formData, phylum: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        
+                                        <input
+                                            type="text"
+                                            placeholder="Class"
+                                            value={formData.class_name}
+                                            onChange={(e) => setFormData({...formData, class_name: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        
+                                        <input
+                                            type="text"
+                                            placeholder="Order"
+                                            value={formData.order_name}
+                                            onChange={(e) => setFormData({...formData, order_name: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        
+                                        <input
+                                            type="text"
+                                            placeholder="Family"
+                                            value={formData.family}
+                                            onChange={(e) => setFormData({...formData, family: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        
+                                        <input
+                                            type="text"
+                                            placeholder="Genus"
+                                            value={formData.genus}
+                                            onChange={(e) => setFormData({...formData, genus: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        
+                                        <input
+                                            type="text"
+                                            placeholder="Species"
+                                            value={formData.species_name}
+                                            onChange={(e) => setFormData({...formData, species_name: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        
+                                        <select
+                                            value={formData.conservation_status}
+                                            onChange={(e) => setFormData({...formData, conservation_status: e.target.value})}
+                                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="Not Evaluated">Not Evaluated</option>
+                                            <option value="Least Concern">Least Concern</option>
+                                            <option value="Near Threatened">Near Threatened</option>
+                                            <option value="Vulnerable">Vulnerable</option>
+                                            <option value="Endangered">Endangered</option>
+                                            <option value="Critically Endangered">Critically Endangered</option>
+                                            <option value="Extinct in the Wild">Extinct in the Wild</option>
+                                            <option value="Extinct">Extinct</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="flex justify-end space-x-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowAddForm(false);
+                                                setEditingSpecies(null);
+                                                setFormData({
+                                                    scientific_name: '',
+                                                    common_name: '',
+                                                    kingdom: 'Animalia',
+                                                    phylum: '',
+                                                    class_name: '',
+                                                    order_name: '',
+                                                    family: '',
+                                                    genus: '',
+                                                    species_name: '',
+                                                    conservation_status: 'Not Evaluated'
+                                                });
+                                            }}
+                                            className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                        >
+                                            {editingSpecies ? 'Update' : 'Add'} Species
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Species List */}
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <div className="px-6 py-4 bg-gray-50 border-b">
+                            <h3 className="font-semibold text-gray-800">
+                                Species List ({filteredSpecies.length} found)
+                            </h3>
+                        </div>
+                        
+                        {filteredSpecies.length === 0 ? (
+                            <div className="p-6 text-center text-gray-500">
+                                <i className="fas fa-fish text-4xl mb-4 opacity-50"></i>
+                                <p>No species found. Try adjusting your search or add some species.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scientific Name</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Common Name</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Family</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conservation Status</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {filteredSpecies.map((species) => (
+                                            <tr key={species.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm font-medium text-gray-900">{species.scientific_name}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">{species.common_name || '-'}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">{species.family || '-'}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                                        species.conservation_status === 'Least Concern' ? 'bg-green-100 text-green-800' :
+                                                        species.conservation_status === 'Near Threatened' ? 'bg-yellow-100 text-yellow-800' :
+                                                        species.conservation_status === 'Vulnerable' ? 'bg-orange-100 text-orange-800' :
+                                                        ['Endangered', 'Critically Endangered'].includes(species.conservation_status) ? 'bg-red-100 text-red-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                        {species.conservation_status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                    <button
+                                                        onClick={() => handleEdit(species)}
+                                                        className="text-blue-600 hover:text-blue-900 mr-3"
+                                                    >
+                                                        <i className="fas fa-edit"></i>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(species.id)}
+                                                        className="text-red-600 hover:text-red-900"
+                                                    >
+                                                        <i className="fas fa-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        
+        // Data Upload Component
+        const DataUpload = () => {
+            const [selectedFile, setSelectedFile] = useState(null);
+            const [uploadType, setUploadType] = useState('taxonomy');
+            const [uploading, setUploading] = useState(false);
+            const [alert, setAlert] = useState(null);
+            const [uploadResult, setUploadResult] = useState(null);
+            const fileInputRef = useRef(null);
+            
+            const handleFileSelect = (e) => {
+                const file = e.target.files[0];
+                if (file && file.type === 'text/csv') {
+                    setSelectedFile(file);
+                    setAlert(null);
+                } else {
+                    setAlert({ type: 'error', message: 'Please select a valid CSV file.' });
+                    setSelectedFile(null);
+                }
+            };
+            
+            const handleUpload = async () => {
+                if (!selectedFile) {
+                    setAlert({ type: 'error', message: 'Please select a file to upload.' });
+                    return;
+                }
+                
+                setUploading(true);
+                setUploadResult(null);
+                
+                try {
+                    const response = await apiService.uploadCSV(selectedFile, uploadType);
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        setAlert({ type: 'success', message: 'File uploaded and processed successfully!' });
+                        setUploadResult(result);
+                    } else {
+                        setAlert({ type: 'error', message: result.detail || 'Upload failed' });
+                    }
+                } catch (error) {
+                    setAlert({ type: 'error', message: `Upload failed: ${error.message}` });
+                } finally {
+                    setUploading(false);
+                }
+            };
+            
+            const clearSelection = () => {
+                setSelectedFile(null);
+                setUploadResult(null);
+                setAlert(null);
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            };
+            
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">
+                        <i className="fas fa-upload text-blue-600 mr-2"></i>
+                        Data Upload
+                    </h2>
+                    
+                    {alert && (
+                        <Alert 
+                            type={alert.type} 
+                            message={alert.message} 
+                            onClose={() => setAlert(null)} 
+                        />
+                    )}
+                    
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <h3 className="text-lg font-semibold mb-4">Upload CSV Data</h3>
+                        
+                        <div className="space-y-4">
+                            {/* Upload Type Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Data Type
+                                </label>
+                                <select
+                                    value={uploadType}
+                                    onChange={(e) => setUploadType(e.target.value)}
+                                    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="taxonomy">Taxonomy Data</option>
+                                    <option value="oceanographic">Oceanographic Data</option>
+                                    <option value="edna">eDNA Data</option>
+                                    <option value="otolith">Otolith Data</option>
+                                </select>
+                            </div>
+                            
+                            {/* File Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    CSV File
+                                </label>
+                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                                    {selectedFile ? (
+                                        <div className="space-y-3">
+                                            <i className="fas fa-file-csv text-green-500 text-3xl"></i>
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+                                                <p className="text-xs text-gray-500">
+                                                    {(selectedFile.size / 1024).toFixed(2)} KB
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={clearSelection}
+                                                className="text-red-600 hover:text-red-800 text-sm"
+                                            >
+                                                <i className="fas fa-times mr-1"></i>Remove
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <i className="fas fa-cloud-upload-alt text-gray-400 text-3xl"></i>
+                                            <div>
+                                                <p className="text-gray-700">Drop your CSV file here or</p>
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="text-blue-600 hover:text-blue-800 font-medium"
+                                                >
+                                                    browse to select
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".csv"
+                                        onChange={handleFileSelect}
+                                        className="hidden"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* Upload Button */}
+                            <div className="flex justify-center">
+                                <button
+                                    onClick={handleUpload}
+                                    disabled={!selectedFile || uploading}
+                                    className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                                        !selectedFile || uploading
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+                                    }`}
+                                >
+                                    {uploading ? (
+                                        <>
+                                            <div className="spinner inline-block mr-2"></div>
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="fas fa-upload mr-2"></i>
+                                            Upload & Process
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Upload Results */}
+                    {uploadResult && (
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <h3 className="text-lg font-semibold mb-4">Upload Results</h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="text-center p-4 bg-green-50 rounded-lg">
+                                    <i className="fas fa-check-circle text-green-500 text-2xl mb-2"></i>
+                                    <p className="text-sm text-gray-600">Processed</p>
+                                    <p className="text-xl font-bold text-green-600">
+                                        {uploadResult.processed || 0}
+                                    </p>
+                                </div>
+                                
+                                <div className="text-center p-4 bg-red-50 rounded-lg">
+                                    <i className="fas fa-exclamation-circle text-red-500 text-2xl mb-2"></i>
+                                    <p className="text-sm text-gray-600">Errors</p>
+                                    <p className="text-xl font-bold text-red-600">
+                                        {uploadResult.errors || 0}
+                                    </p>
+                                </div>
+                                
+                                <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                                    <i className="fas fa-exclamation-triangle text-yellow-500 text-2xl mb-2"></i>
+                                    <p className="text-sm text-gray-600">Skipped</p>
+                                    <p className="text-xl font-bold text-yellow-600">
+                                        {uploadResult.skipped || 0}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {uploadResult.messages && uploadResult.messages.length > 0 && (
+                                <div className="mt-4">
+                                    <h4 className="font-medium text-gray-800 mb-2">Processing Messages:</h4>
+                                    <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto">
+                                        {uploadResult.messages.map((message, index) => (
+                                            <div key={index} className="text-sm text-gray-700 py-1">
+                                                {message}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    
+                    {/* Template Downloads */}
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <h3 className="text-lg font-semibold mb-4">CSV Templates</h3>
+                        <p className="text-gray-600 mb-4">
+                            Download CSV templates with the correct format and example data:
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {[
+                                { type: 'taxonomy', name: 'Taxonomy', icon: 'fa-sitemap' },
+                                { type: 'oceanographic', name: 'Oceanographic', icon: 'fa-water' },
+                                { type: 'edna', name: 'eDNA', icon: 'fa-dna' },
+                                { type: 'otolith', name: 'Otolith', icon: 'fa-fish' }
+                            ].map(template => (
+                                <button
+                                    key={template.type}
+                                    onClick={() => {
+                                        // This would typically download a template
+                                        setAlert({ type: 'info', message: `${template.name} template download would start here.` });
+                                    }}
+                                    className="p-4 border rounded-lg hover:bg-gray-50 text-center transition-colors"
+                                >
+                                    <i className={`fas ${template.icon} text-blue-500 text-xl mb-2`}></i>
+                                    <p className="text-sm font-medium">{template.name} Template</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Visualizations Component
+        const Visualizations = () => {
+            const chartRef = useRef(null);
+            const [chartInstance, setChartInstance] = useState(null);
+            const [chartType, setChartType] = useState('pie');
+            const [loading, setLoading] = useState(true);
+            
+            useEffect(() => {
+                loadVisualization();
+            }, [chartType]);
+            
+            useEffect(() => {
+                return () => {
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+                };
+            }, [chartInstance]);
+            
+            const loadVisualization = async () => {
+                setLoading(true);
+                
+                try {
+                    // Destroy existing chart
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+                    
+                    // For demo purposes, we'll create sample data
+                    // In a real app, this would come from your API
+                    const sampleData = {
+                        labels: ['Fish', 'Marine Plants', 'Crustaceans', 'Mollusks', 'Other'],
+                        datasets: [{
+                            label: 'Species Count',
+                            data: [45, 25, 15, 10, 5],
+                            backgroundColor: [
+                                '#3B82F6',
+                                '#10B981',
+                                '#F59E0B',
+                                '#EF4444',
+                                '#8B5CF6'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    };
+                    
+                    const ctx = chartRef.current?.getContext('2d');
+                    if (ctx) {
+                        const newChart = new Chart(ctx, {
+                            type: chartType,
+                            data: sampleData,
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: {
+                                            padding: 20,
+                                            usePointStyle: true
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Species Distribution by Category',
+                                        font: {
+                                            size: 16
+                                        }
+                                    }
+                                },
+                                ...(chartType !== 'pie' && {
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            grid: {
+                                                color: 'rgba(0, 0, 0, 0.1)'
+                                            }
+                                        },
+                                        x: {
+                                            grid: {
+                                                color: 'rgba(0, 0, 0, 0.1)'
+                                            }
+                                        }
+                                    }
+                                })
+                            }
+                        });
+                        
+                        setChartInstance(newChart);
+                    }
+                } catch (error) {
+                    console.error('Failed to load visualization:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-gray-800">
+                            <i className="fas fa-chart-bar text-blue-600 mr-2"></i>
+                            Data Visualizations
+                        </h2>
+                        
+                        <select
+                            value={chartType}
+                            onChange={(e) => setChartType(e.target.value)}
+                            className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="pie">Pie Chart</option>
+                            <option value="bar">Bar Chart</option>
+                            <option value="line">Line Chart</option>
+                            <option value="doughnut">Doughnut Chart</option>
+                        </select>
+                    </div>
+                    
+                    {/* Chart Container */}
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <div className="relative h-96">
+                            {loading ? (
+                                <Loading text="Loading visualization..." />
+                            ) : (
+                                <canvas ref={chartRef}></canvas>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                            <i className="fas fa-fish text-blue-500 text-2xl mb-3"></i>
+                            <h3 className="text-lg font-semibold text-gray-800">Fish Species</h3>
+                            <p className="text-3xl font-bold text-blue-600">45</p>
+                            <p className="text-sm text-gray-500">45% of total</p>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                            <i className="fas fa-leaf text-green-500 text-2xl mb-3"></i>
+                            <h3 className="text-lg font-semibold text-gray-800">Marine Plants</h3>
+                            <p className="text-3xl font-bold text-green-600">25</p>
+                            <p className="text-sm text-gray-500">25% of total</p>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                            <i className="fas fa-spider text-yellow-500 text-2xl mb-3"></i>
+                            <h3 className="text-lg font-semibold text-gray-800">Crustaceans</h3>
+                            <p className="text-3xl font-bold text-yellow-600">15</p>
+                            <p className="text-sm text-gray-500">15% of total</p>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                            <i className="fas fa-circle text-purple-500 text-2xl mb-3"></i>
+                            <h3 className="text-lg font-semibold text-gray-800">Other</h3>
+                            <p className="text-3xl font-bold text-purple-600">15</p>
+                            <p className="text-sm text-gray-500">15% of total</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Main App Component
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            
+            const renderActiveComponent = () => {
+                switch (activeTab) {
+                    case 'dashboard':
+                        return <Dashboard />;
+                    case 'species':
+                        return <SpeciesManagement />;
+                    case 'upload':
+                        return <DataUpload />;
+                    case 'visualizations':
+                        return <Visualizations />;
+                    default:
+                        return <Dashboard />;
+                }
+            };
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+                    
+                    <main className="max-w-7xl mx-auto py-6 px-4">
+                        {renderActiveComponent()}
+                    </main>
+                    
+                    <footer className="bg-white border-t mt-12">
+                        <div className="max-w-7xl mx-auto py-4 px-4 text-center text-gray-500">
+                            <p>© 2025 Ocean-Bio Platform - Marine Data India Platform</p>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+        
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
