@@ -73,6 +73,13 @@
         // API Configuration
         const API_BASE_URL = 'http://localhost:8000/api';
         
+        // Authentication state
+        const authState = {
+            user: null,
+            token: localStorage.getItem('token'),
+            isAuthenticated: false
+        };
+        
         // API Service
         const apiService = {
             async request(endpoint, options = {}) {
@@ -80,6 +87,7 @@
                 const config = {
                     headers: {
                         'Content-Type': 'application/json',
+                        ...(authState.token && { 'Authorization': `Bearer ${authState.token}` })
                     },
                     ...options,
                 };
@@ -154,6 +162,37 @@
             // Visualization endpoints
             async getVisualizationData(type = 'trend') {
                 return this.request(`/visualization/${type}-data`);
+            },
+            
+            // Authentication endpoints
+            async login(username, password) {
+                return this.request('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password })
+                });
+            },
+            
+            async register(userData) {
+                return this.request('/auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify(userData)
+                });
+            },
+            
+            async getCurrentUser() {
+                return this.request('/auth/me');
+            },
+            
+            async logout() {
+                return this.request('/auth/logout', {
+                    method: 'POST'
+                });
+            },
+            
+            async verifyToken() {
+                return this.request('/auth/verify-token', {
+                    method: 'POST'
+                });
             }
         };
         
@@ -206,8 +245,145 @@
             );
         };
         
+        // AuthModal Component
+        const AuthModal = ({ isOpen, mode, onClose, onSuccess }) => {
+            const [formData, setFormData] = useState({
+                username: '',
+                password: '',
+                email: '',
+                full_name: '',
+                role: 'viewer'
+            });
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+                
+                try {
+                    let result;
+                    if (mode === 'login') {
+                        result = await apiService.login(formData.username, formData.password);
+                        // Store token and user info
+                        localStorage.setItem('token', result.access_token);
+                        authState.token = result.access_token;
+                        authState.user = result.user;
+                        authState.isAuthenticated = true;
+                    } else {
+                        result = await apiService.register({
+                            username: formData.username,
+                            password: formData.password,
+                            email: formData.email,
+                            full_name: formData.full_name,
+                            role: formData.role
+                        });
+                    }
+                    
+                    onSuccess(result);
+                    onClose();
+                } catch (error) {
+                    setError(error.message || 'Authentication failed');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            if (!isOpen) return null;
+            
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold">
+                                {mode === 'login' ? 'Login' : 'Register'}
+                            </h2>
+                            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                                <i className="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-800">
+                                {error}
+                            </div>
+                        )}
+                        
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input
+                                type="text"
+                                placeholder="Username"
+                                value={formData.username}
+                                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                            
+                            {mode === 'register' && (
+                                <>
+                                    <input
+                                        type="email"
+                                        placeholder="Email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Full Name"
+                                        value={formData.full_name}
+                                        onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                    <select
+                                        value={formData.role}
+                                        onChange={(e) => setFormData({...formData, role: e.target.value})}
+                                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="viewer">Viewer</option>
+                                        <option value="researcher">Researcher</option>
+                                    </select>
+                                </>
+                            )}
+                            
+                            <input
+                                type="password"
+                                placeholder="Password"
+                                value={formData.password}
+                                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                            
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className={`w-full py-3 rounded-lg font-medium transition-all ${
+                                    loading
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                }`}
+                            >
+                                {loading ? (
+                                    <>
+                                        <div className="spinner inline-block mr-2"></div>
+                                        {mode === 'login' ? 'Logging in...' : 'Registering...'}
+                                    </>
+                                ) : (
+                                    mode === 'login' ? 'Login' : 'Register'
+                                )}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+        
         // Navigation Component
-        const Navigation = ({ activeTab, setActiveTab }) => {
+        const Navigation = ({ activeTab, setActiveTab, user, onLogin, onLogout }) => {
             const tabs = [
                 { id: 'dashboard', name: 'Dashboard', icon: 'fa-chart-pie' },
                 { id: 'species', name: 'Species', icon: 'fa-fish' },
@@ -224,21 +400,60 @@
                                 <h1 className="text-white text-xl font-bold">Ocean-Bio Platform</h1>
                             </div>
                             
-                            <div className="flex space-x-1">
-                                {tabs.map(tab => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                            activeTab === tab.id
-                                                ? 'bg-white text-blue-600 shadow-md'
-                                                : 'text-white hover:bg-white hover:bg-opacity-20'
-                                        }`}
-                                    >
-                                        <i className={`fas ${tab.icon} mr-2`}></i>
-                                        {tab.name}
-                                    </button>
-                                ))}
+                            <div className="flex items-center space-x-4">
+                                <div className="flex space-x-1">
+                                    {tabs.map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setActiveTab(tab.id)}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                                activeTab === tab.id
+                                                    ? 'bg-white text-blue-600 shadow-md'
+                                                    : 'text-white hover:bg-white hover:bg-opacity-20'
+                                            }`}
+                                        >
+                                            <i className={`fas ${tab.icon} mr-2`}></i>
+                                            {tab.name}
+                                        </button>
+                                    ))}
+                                </div>
+                                
+                                {/* Authentication UI */}
+                                {user ? (
+                                    <div className="flex items-center space-x-3">
+                                        <div className="text-white text-sm">
+                                            <i className="fas fa-user mr-1"></i>
+                                            {user.username}
+                                            <span className="ml-1 px-2 py-1 bg-white bg-opacity-20 rounded text-xs">
+                                                {user.role}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={onLogout}
+                                            className="text-white hover:bg-white hover:bg-opacity-20 px-3 py-1 rounded transition-all"
+                                        >
+                                            <i className="fas fa-sign-out-alt mr-1"></i>
+                                            Logout
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => onLogin('login')}
+                                            className="text-white hover:bg-white hover:bg-opacity-20 px-3 py-1 rounded transition-all"
+                                        >
+                                            <i className="fas fa-sign-in-alt mr-1"></i>
+                                            Login
+                                        </button>
+                                        <button
+                                            onClick={() => onLogin('register')}
+                                            className="bg-white text-blue-600 hover:bg-gray-100 px-3 py-1 rounded transition-all"
+                                        >
+                                            <i className="fas fa-user-plus mr-1"></i>
+                                            Register
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1100,6 +1315,72 @@
         // Main App Component
         const App = () => {
             const [activeTab, setActiveTab] = useState('dashboard');
+            const [user, setUser] = useState(null);
+            const [authModalOpen, setAuthModalOpen] = useState(false);
+            const [authMode, setAuthMode] = useState('login');
+            const [loading, setLoading] = useState(true);
+            
+            // Initialize authentication state
+            useEffect(() => {
+                const initAuth = async () => {
+                    const token = localStorage.getItem('token');
+                    if (token) {
+                        authState.token = token;
+                        try {
+                            const userData = await apiService.getCurrentUser();
+                            setUser(userData);
+                            authState.user = userData;
+                            authState.isAuthenticated = true;
+                        } catch (error) {
+                            // Token is invalid, remove it
+                            localStorage.removeItem('token');
+                            authState.token = null;
+                            authState.user = null;
+                            authState.isAuthenticated = false;
+                        }
+                    }
+                    setLoading(false);
+                };
+                
+                initAuth();
+            }, []);
+            
+            const handleLogin = (mode) => {
+                setAuthMode(mode);
+                setAuthModalOpen(true);
+            };
+            
+            const handleLogout = async () => {
+                try {
+                    await apiService.logout();
+                } catch (error) {
+                    // Ignore logout errors
+                }
+                
+                // Clear authentication state
+                localStorage.removeItem('token');
+                authState.token = null;
+                authState.user = null;
+                authState.isAuthenticated = false;
+                setUser(null);
+            };
+            
+            const handleAuthSuccess = (result) => {
+                if (authMode === 'login') {
+                    setUser(result.user);
+                } else {
+                    // For registration, show success message
+                    alert('Registration successful! Please login.');
+                }
+            };
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                        <Loading text="Initializing application..." />
+                    </div>
+                );
+            }
             
             const renderActiveComponent = () => {
                 switch (activeTab) {
@@ -1118,7 +1399,13 @@
             
             return (
                 <div className="min-h-screen bg-gray-50">
-                    <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <Navigation 
+                        activeTab={activeTab} 
+                        setActiveTab={setActiveTab} 
+                        user={user}
+                        onLogin={handleLogin}
+                        onLogout={handleLogout}
+                    />
                     
                     <main className="max-w-7xl mx-auto py-6 px-4">
                         {renderActiveComponent()}
@@ -1129,6 +1416,14 @@
                             <p>© 2025 Ocean-Bio Platform - Marine Data India Platform</p>
                         </div>
                     </footer>
+                    
+                    {/* Authentication Modal */}
+                    <AuthModal
+                        isOpen={authModalOpen}
+                        mode={authMode}
+                        onClose={() => setAuthModalOpen(false)}
+                        onSuccess={handleAuthSuccess}
+                    />
                 </div>
             );
         };

@@ -12,6 +12,7 @@ from .modules.taxonomy.router import router as taxonomy_router
 from .modules.otolith.router import router as otolith_router
 from .modules.edna.router import router as edna_router
 from .modules.ingestion.router import router as ingestion_router
+from .modules.auth.router import router as auth_router
 from .visualization.router import router as viz_router
 
 app = FastAPI(
@@ -39,4 +40,5 @@ app.include_router(taxonomy_router, prefix="/api/taxonomy", tags=["taxonomy"])
 app.include_router(otolith_router, prefix="/api/otolith", tags=["otolith"])
 app.include_router(edna_router, prefix="/api/edna", tags=["edna"])
 app.include_router(ingestion_router, prefix="/api/ingestion", tags=["data-ingestion"])
+app.include_router(auth_router, prefix="/api", tags=["authentication"])
 app.include_router(viz_router, prefix="/api/visualization", tags=["visualization"])

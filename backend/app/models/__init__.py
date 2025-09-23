@@ -30,6 +30,10 @@ from .otolith import (
     OtolithClassification,
     OtolithStudy
 )
+from .user import (
+    User,
+    UserRole
+)
 
 # Export all models for easy importing
 __all__ = [
@@ -59,5 +63,8 @@ __all__ = [
     "OtolithImage",
     "OtolithReference",
     "OtolithClassification",
-    "OtolithStudy"
+    "OtolithStudy",
+    # Authentication
+    "User",
+    "UserRole"
 ]

@@ -11,3 +11,8 @@ httpx>=0.24.0
 psycopg2-binary
 python-multipart
 aiofiles
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+python-multipart
+email-validator

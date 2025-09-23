@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from ...core.database import get_db
+from ...core.dependencies import require_write_access, get_optional_user
+from ...models.user import User
 from ...crud import taxonomy as crud
 from ...schemas.taxonomy import (
     TaxonomicRankCreate, TaxonomicRankUpdate, TaxonomicRankResponse,
@@ -16,7 +18,8 @@ router = APIRouter()
 @router.post("/ranks", response_model=TaxonomicRankResponse, status_code=201)
 def create_rank(
     rank_data: TaxonomicRankCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_write_access)
 ):
     """Create a new taxonomic rank."""
     # Check if rank already exists
@@ -50,7 +53,8 @@ def get_rank(
 def update_rank(
     rank_id: int = Path(..., gt=0),
     rank_data: TaxonomicRankUpdate = ...,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_write_access)
 ):
     """Update a taxonomic rank."""
     updated_rank = crud.update_taxonomic_rank(db, rank_id, rank_data)
@@ -61,7 +65,8 @@ def update_rank(
 @router.delete("/ranks/{rank_id}", status_code=204)
 def delete_rank(
     rank_id: int = Path(..., gt=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_write_access)
 ):
     """Delete a taxonomic rank."""
     success = crud.delete_taxonomic_rank(db, rank_id)
@@ -72,7 +77,8 @@ def delete_rank(
 @router.post("/species", response_model=TaxonomicUnitResponse, status_code=201)
 def create_species(
     species_data: TaxonomicUnitCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_write_access)
 ):
     """Create a new taxonomic unit (species/taxon)."""
     # Check if species already exists
@@ -139,7 +145,8 @@ def get_species(
 def update_species(
     species_id: int = Path(..., gt=0),
     species_data: TaxonomicUnitUpdate = ...,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_write_access)
 ):
     """Update a taxonomic unit."""
     # Validate rank exists if provided
@@ -163,7 +170,8 @@ def update_species(
 def delete_species(
     species_id: int = Path(..., gt=0),
     cascade: bool = Query(False, description="Delete children as well"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_write_access)
 ):
     """Delete a taxonomic unit."""
     try:
@@ -193,6 +201,23 @@ def get_taxonomy_tree(
 ):
     """Get taxonomic tree structure."""
     return crud.get_taxonomic_tree(db, root_id)
+
+@router.get("/stats")
+def get_taxonomy_stats(
+    db: Session = Depends(get_db)
+):
+    """Get taxonomy statistics."""
+    from sqlalchemy import func
+    from ...models.taxonomy import TaxonomicUnit, TaxonomicRank
+    
+    total_species = db.query(func.count(TaxonomicUnit.id)).scalar()
+    total_ranks = db.query(func.count(TaxonomicRank.id)).scalar()
+    
+    return {
+        "total_species": total_species,
+        "total_ranks": total_ranks,
+        "recent_updates": 0  # Placeholder
+    }
 
 # Synonyms endpoints
 @router.post("/species/{species_id}/synonyms", response_model=TaxonomicSynonymResponse, status_code=201)
