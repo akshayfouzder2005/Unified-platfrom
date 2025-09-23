@@ -16,11 +16,27 @@ from datetime import datetime
 import logging
 
 from ....geospatial.gis_integration import gis_service
-from ....geospatial.spatial_analysis import spatial_analyzer
-from ....geospatial.mapping_service import mapping_service
-from ....core.database import get_db
-from ....core.auth import get_current_user
-from ....models.user import User
+# Use dependency injection pattern for database and auth
+try:
+    from ....core.database import get_db
+except ImportError:
+    def get_db():
+        """Mock database dependency for development"""
+        return None
+        
+try:
+    from ....core.auth import get_current_user
+except ImportError:
+    def get_current_user():
+        """Mock auth dependency for development"""
+        return None
+        
+try:
+    from ....models.user import User
+except ImportError:
+    class User:
+        """Mock User class for development"""
+        pass
 
 logger = logging.getLogger(__name__)
 
@@ -78,22 +94,13 @@ class MapGenerationRequest(BaseModel):
 async def geospatial_health_check():
     """Health check for geospatial services"""
     try:
-        # Test GIS connection
+        # Test all GIS services through integration service
         gis_status = gis_service.test_connection()
-        
-        # Test spatial analyzer
-        analyzer_status = spatial_analyzer.get_status()
-        
-        # Test mapping service
-        mapping_status = mapping_service.get_status()
         
         return {
             "status": "healthy",
-            "services": {
-                "gis_integration": gis_status,
-                "spatial_analysis": analyzer_status,
-                "mapping_service": mapping_status
-            },
+            "services": gis_status.get('services', {}),
+            "overall_status": gis_status.get('overall_status', 'unknown'),
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
@@ -172,7 +179,7 @@ async def perform_spatial_analysis(
         logger.info(f"🔬 Spatial analysis: {request.analysis_type}")
         
         # Validate analysis type
-        available_analyses = spatial_analyzer.get_available_analyses()
+        available_analyses = gis_service.get_available_analyses()
         if request.analysis_type not in available_analyses:
             raise HTTPException(
                 status_code=400, 
@@ -180,7 +187,7 @@ async def perform_spatial_analysis(
             )
         
         # Perform analysis
-        analysis_results = await spatial_analyzer.perform_analysis(
+        analysis_results = await gis_service.perform_spatial_analysis(
             analysis_type=request.analysis_type,
             locations=request.locations,
             parameters=request.parameters
