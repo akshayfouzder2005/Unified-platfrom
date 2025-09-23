@@ -15,11 +15,14 @@ from .modules.ingestion.router import router as ingestion_router
 from .modules.auth.router import router as auth_router
 from .modules.fisheries.router import router as fisheries_router
 from .visualization.router import router as viz_router
+from .api.v1.routers.geospatial import router as geospatial_router
+from .api.v1.routers.predictive import router as predictive_router
+from .api.v1.routers.genomics import router as genomics_router
 
 app = FastAPI(
-    title="AI-Driven Unified Data Platform",
-    version="0.1.0",
-    description="APIs for oceanographic, fisheries, and molecular biodiversity data",
+    title="Ocean-Bio: AI-Driven Marine Data Platform",
+    version="2.0.0",
+    description="Advanced APIs for marine biodiversity, geospatial analysis, predictive modeling, and genomics",
 )
 
 # Register exception handlers
@@ -44,3 +47,8 @@ app.include_router(ingestion_router, prefix="/api/ingestion", tags=["data-ingest
 app.include_router(auth_router, prefix="/api", tags=["authentication"])
 app.include_router(fisheries_router, prefix="/api", tags=["fisheries"])
 app.include_router(viz_router, prefix="/api/visualization", tags=["visualization"])
+
+# Phase 2 Advanced Analytics Routers
+app.include_router(geospatial_router, prefix="/api/v2", tags=["geospatial"])
+app.include_router(predictive_router, prefix="/api/v2", tags=["predictive"])
+app.include_router(genomics_router, prefix="/api/v2", tags=["genomics"])
