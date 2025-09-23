@@ -17,7 +17,7 @@ from httpx import AsyncClient
 from app.main import app
 from app.core.database import get_db, Base
 from app.core.security import get_password_hash, create_access_token
-from app.models.user import User, UserRole, UserStatus
+from app.models.user import User, UserRole
 from app.models.taxonomy import TaxonomicUnit
 from app.models.fisheries import (
     VesselType, FishingMethod, FishingVessel, 
@@ -108,8 +108,8 @@ def admin_user(db_session) -> User:
         hashed_password=get_password_hash("testpassword123"),
         full_name="Test Admin",
         role=UserRole.ADMIN,
-        status=UserStatus.ACTIVE,
-        created_at=datetime.utcnow()
+        is_active=True,
+        is_verified=True
     )
     db_session.add(user)
     db_session.commit()
@@ -126,8 +126,8 @@ def researcher_user(db_session) -> User:
         hashed_password=get_password_hash("testpassword123"),
         full_name="Test Researcher",
         role=UserRole.RESEARCHER,
-        status=UserStatus.ACTIVE,
-        created_at=datetime.utcnow()
+        is_active=True,
+        is_verified=True
     )
     db_session.add(user)
     db_session.commit()
@@ -144,8 +144,8 @@ def viewer_user(db_session) -> User:
         hashed_password=get_password_hash("testpassword123"),
         full_name="Test Viewer",
         role=UserRole.VIEWER,
-        status=UserStatus.ACTIVE,
-        created_at=datetime.utcnow()
+        is_active=True,
+        is_verified=True
     )
     db_session.add(user)
     db_session.commit()
