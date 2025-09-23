@@ -11,7 +11,8 @@ Version: 2.0.0
 import logging
 from typing import List, Dict, Any, Optional, Tuple, Union
 from datetime import datetime
-from geoalchemy2 import Geometry, func
+from geoalchemy2 import Geometry
+from sqlalchemy import func
 from sqlalchemy import text, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
