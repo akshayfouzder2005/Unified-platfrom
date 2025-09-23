@@ -1,0 +1,98 @@
+{
+  "fish": [
+    {
+      "id": 1,
+      "name": "Yellowfin Tuna",
+      "scientific": "Thunnus albacares",
+      "confidence_base": 0.85
+    },
+    {
+      "id": 2,
+      "name": "Atlantic Cod",
+      "scientific": "Gadus morhua",
+      "confidence_base": 0.82
+    },
+    {
+      "id": 3,
+      "name": "Red Snapper",
+      "scientific": "Lutjanus campechanus",
+      "confidence_base": 0.79
+    },
+    {
+      "id": 4,
+      "name": "Atlantic Salmon",
+      "scientific": "Salmo salar",
+      "confidence_base": 0.88
+    },
+    {
+      "id": 5,
+      "name": "Grouper",
+      "scientific": "Epinephelus",
+      "confidence_base": 0.76
+    },
+    {
+      "id": 6,
+      "name": "Mackerel",
+      "scientific": "Scomber scombrus",
+      "confidence_base": 0.81
+    },
+    {
+      "id": 7,
+      "name": "Sea Bass",
+      "scientific": "Dicentrarchus labrax",
+      "confidence_base": 0.84
+    },
+    {
+      "id": 8,
+      "name": "Flounder",
+      "scientific": "Platichthys flesus",
+      "confidence_base": 0.77
+    },
+    {
+      "id": 9,
+      "name": "Anchovy",
+      "scientific": "Engraulis encrasicolus",
+      "confidence_base": 0.73
+    },
+    {
+      "id": 10,
+      "name": "Sardine",
+      "scientific": "Sardina pilchardus",
+      "confidence_base": 0.75
+    }
+  ],
+  "otolith": [
+    {
+      "id": 1,
+      "name": "Cod Otolith",
+      "scientific": "Gadus morhua",
+      "confidence_base": 0.91
+    },
+    {
+      "id": 2,
+      "name": "Haddock Otolith",
+      "scientific": "Melanogrammus aeglefinus",
+      "confidence_base": 0.89
+    },
+    {
+      "id": 3,
+      "name": "Pollock Otolith",
+      "scientific": "Pollachius pollachius",
+      "confidence_base": 0.87
+    },
+    {
+      "id": 4,
+      "name": "Plaice Otolith",
+      "scientific": "Pleuronectes platessa",
+      "confidence_base": 0.85
+    },
+    {
+      "id": 5,
+      "name": "Sole Otolith",
+      "scientific": "Solea solea",
+      "confidence_base": 0.83
+    }
+  ],
+  "created_at": "2025-09-23T17:17:14.712946",
+  "version": "1.0"
+}

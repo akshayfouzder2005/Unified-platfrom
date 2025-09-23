@@ -1,0 +1,41 @@
+{
+  "ml_components": {
+    "model_manager": {
+      "loaded_models": 0,
+      "status": "FAIL",
+      "details": "0 models loaded"
+    },
+    "species_identification": {
+      "status": "FAIL",
+      "details": "No fish model available"
+    }
+  },
+  "realtime_components": {
+    "websocket_manager": {
+      "status": "FAIL",
+      "details": "Initialized: False",
+      "active_connections": 0,
+      "available_topics": 10
+    },
+    "analytics_engine": {
+      "status": "PASS",
+      "details": "System status: healthy",
+      "is_running": false
+    }
+  },
+  "search_components": {
+    "search_engine": {
+      "status": "FAIL",
+      "details": "Initialized: False",
+      "elasticsearch_available": false,
+      "fallback_mode": true
+    },
+    "search_functionality": {
+      "status": "PASS",
+      "details": "Search working",
+      "results_count": 3
+    }
+  },
+  "api_endpoints": {},
+  "overall_status": "FAILED \u274c"
+}
