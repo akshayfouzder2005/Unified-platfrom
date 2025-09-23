@@ -14,6 +14,14 @@ class UserRole(PyEnum):
     VIEWER = "viewer"
 
 
+class UserStatus(PyEnum):
+    """User account status."""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
+    PENDING = "pending"
+
+
 class User(Base):
     """
     User model for authentication and authorization.

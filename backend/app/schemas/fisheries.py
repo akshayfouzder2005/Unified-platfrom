@@ -3,7 +3,7 @@ Pydantic schemas for fisheries models.
 """
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from app.models.fisheries import VesselType, FishingMethod, CatchStatus
 
 
@@ -28,13 +28,15 @@ class FishingVesselBase(BaseModel):
 class FishingVesselCreate(FishingVesselBase):
     """Schema for creating fishing vessel."""
     
-    @validator('length')
+    @field_validator('length')
+    @classmethod
     def validate_length(cls, v):
         if v is not None and v <= 0:
             raise ValueError('Vessel length must be positive')
         return v
     
-    @validator('crew_size')
+    @field_validator('crew_size')
+    @classmethod
     def validate_crew_size(cls, v):
         if v is not None and v <= 0:
             raise ValueError('Crew size must be positive')
@@ -93,13 +95,15 @@ class FishingTripCreate(FishingTripBase):
     """Schema for creating fishing trip."""
     vessel_id: int
     
-    @validator('fuel_consumed')
+    @field_validator('fuel_consumed')
+    @classmethod
     def validate_fuel_consumed(cls, v):
         if v is not None and v < 0:
             raise ValueError('Fuel consumed cannot be negative')
         return v
     
-    @validator('total_catch_weight')
+    @field_validator('total_catch_weight')
+    @classmethod
     def validate_total_catch_weight(cls, v):
         if v is not None and v < 0:
             raise ValueError('Total catch weight cannot be negative')
@@ -163,13 +167,15 @@ class CatchRecordCreate(CatchRecordBase):
     species_id: int
     trip_id: Optional[int] = None
     
-    @validator('catch_weight')
+    @field_validator('catch_weight')
+    @classmethod
     def validate_catch_weight(cls, v):
         if v <= 0:
             raise ValueError('Catch weight must be positive')
         return v
     
-    @validator('price_per_kg')
+    @field_validator('price_per_kg')
+    @classmethod
     def validate_price_per_kg(cls, v):
         if v is not None and v < 0:
             raise ValueError('Price per kg cannot be negative')
@@ -226,15 +232,17 @@ class FishingQuotaCreate(FishingQuotaBase):
     vessel_id: int
     species_id: int
     
-    @validator('allocated_quota')
+    @field_validator('allocated_quota')
+    @classmethod
     def validate_allocated_quota(cls, v):
         if v <= 0:
             raise ValueError('Allocated quota must be positive')
         return v
     
-    @validator('end_date')
-    def validate_end_date(cls, v, values):
-        if 'start_date' in values and v <= values['start_date']:
+    @field_validator('end_date')
+    @classmethod
+    def validate_end_date(cls, v, info):
+        if info.data.get('start_date') and v <= info.data.get('start_date'):
             raise ValueError('End date must be after start date')
         return v
 
@@ -283,7 +291,8 @@ class MarketPriceCreate(MarketPriceBase):
     """Schema for creating market price."""
     species_id: int
     
-    @validator('price_per_kg')
+    @field_validator('price_per_kg')
+    @classmethod
     def validate_price_per_kg(cls, v):
         if v < 0:
             raise ValueError('Price per kg cannot be negative')

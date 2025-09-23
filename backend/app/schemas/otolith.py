@@ -3,7 +3,7 @@ Pydantic schemas for otolith models.
 """
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 
 # Otolith Specimen Schemas
@@ -36,14 +36,16 @@ class OtolithSpecimenBase(BaseModel):
 class OtolithSpecimenCreate(OtolithSpecimenBase):
     """Schema for creating otolith specimen."""
     
-    @validator('otolith_type')
+    @field_validator('otolith_type')
+    @classmethod
     def validate_otolith_type(cls, v):
         valid_types = ['sagitta', 'lapillus', 'asteriscus']
         if v not in valid_types:
             raise ValueError(f'Otolith type must be one of: {valid_types}')
         return v
     
-    @validator('fish_sex')
+    @field_validator('fish_sex')
+    @classmethod
     def validate_fish_sex(cls, v):
         if v is not None:
             valid_sexes = ['male', 'female', 'unknown']
@@ -51,7 +53,8 @@ class OtolithSpecimenCreate(OtolithSpecimenBase):
                 raise ValueError(f'Fish sex must be one of: {valid_sexes}')
         return v
     
-    @validator('condition')
+    @field_validator('condition')
+    @classmethod
     def validate_condition(cls, v):
         if v is not None:
             valid_conditions = ['excellent', 'good', 'fair', 'poor', 'damaged']
@@ -127,7 +130,8 @@ class OtolithMeasurementCreate(OtolithMeasurementBase):
     """Schema for creating otolith measurement."""
     specimen_id: int
     
-    @validator('measurement_method')
+    @field_validator('measurement_method')
+    @classmethod
     def validate_measurement_method(cls, v):
         if v is not None:
             valid_methods = ['manual', 'image_analysis', '3D_scan']
@@ -209,7 +213,8 @@ class OtolithImageCreate(OtolithImageBase):
     """Schema for creating otolith image."""
     specimen_id: int
     
-    @validator('image_type')
+    @field_validator('image_type')
+    @classmethod
     def validate_image_type(cls, v):
         valid_types = ['dorsal', 'ventral', 'lateral', '3D', 'microscopy']
         if v not in valid_types:
@@ -284,7 +289,8 @@ class OtolithClassificationCreate(OtolithClassificationBase):
     """Schema for creating otolith classification."""
     specimen_id: int
     
-    @validator('confidence_score')
+    @field_validator('confidence_score')
+    @classmethod
     def validate_confidence_score(cls, v):
         if not 0 <= v <= 1:
             raise ValueError('Confidence score must be between 0 and 1')
