@@ -25,6 +25,28 @@ class DatabaseConnectionError(Exception):
     """Custom exception for database connection issues"""
     pass
 
+
+class DatabaseError(Exception):
+    """Custom exception for general database errors"""
+    def __init__(self, message: str, operation: str = None):
+        self.message = message
+        self.operation = operation
+        super().__init__(self.message)
+
+
+class AuthenticationError(Exception):
+    """Custom exception for authentication errors"""
+    def __init__(self, message: str = "Authentication failed"):
+        self.message = message
+        super().__init__(self.message)
+
+
+class AuthorizationError(Exception):
+    """Custom exception for authorization errors"""
+    def __init__(self, message: str = "Access denied"):
+        self.message = message
+        super().__init__(self.message)
+
 class IngestionError(Exception):
     """Custom exception for data ingestion failures"""
     def __init__(self, message: str, row: int = None, errors: list = None):

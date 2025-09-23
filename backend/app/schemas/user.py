@@ -60,6 +60,10 @@ class User(UserInDB):
     pass
 
 
+# Alias for backward compatibility
+UserResponse = User
+
+
 class UserLogin(BaseModel):
     """Schema for user login."""
     username: str

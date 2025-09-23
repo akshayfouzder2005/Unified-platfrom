@@ -335,3 +335,9 @@ class FisheriesStats(BaseModel):
     average_catch_per_trip: float
     top_species: List[dict]
     top_fishing_areas: List[dict]
+
+
+# Aliases for backward compatibility
+VesselCreate = FishingVesselCreate
+VesselUpdate = FishingVesselUpdate
+VesselResponse = FishingVesselResponse
