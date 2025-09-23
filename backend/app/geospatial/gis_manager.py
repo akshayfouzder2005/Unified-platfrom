@@ -52,19 +52,24 @@ class GISManager:
         try:
             self.engine = create_engine(self.database_url)
             
-            with self.engine.connect() as conn:
-                # Enable PostGIS extensions
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis_topology;"))
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"))
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis_tiger_geocoder;"))
-                conn.commit()
-                
-            logger.info("🗺️ PostGIS extensions initialized successfully")
+            # Only attempt PostGIS initialization for PostgreSQL
+            if self.engine.url.get_backend_name() == "postgresql":
+                with self.engine.connect() as conn:
+                    # Enable PostGIS extensions
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis_topology;"))
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"))
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis_tiger_geocoder;"))
+                    conn.commit()
+                    
+                logger.info("🗺️ PostGIS extensions initialized successfully")
+            else:
+                logger.info(f"🗺️ Skipping PostGIS initialization for {self.engine.url.get_backend_name()} backend")
+            
             return True
             
         except Exception as e:
-            logger.error(f"❌ PostGIS initialization failed: {e}")
+            logger.warning(f"⚠️ PostGIS initialization failed (this is normal for SQLite): {e}")
             return False
     
     def create_spatial_tables(self) -> bool:
